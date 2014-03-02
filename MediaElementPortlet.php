@@ -67,7 +67,7 @@ class MediaElementPortlet extends CPortlet
 	public $model = null;
 	public $url = null;
 	public $mimeType = null;
-	public $mediaType = 'audio';
+	public $mediaType = 'video';
 	public $autoplay = true;
 	public $htmlOptions = array();
 
@@ -86,6 +86,7 @@ class MediaElementPortlet extends CPortlet
      * )
      */
     public $sources = array();
+    public $tracks = array();
 
     /**
      * Allows specifying additional information for our <object> tag flash fallback
@@ -104,8 +105,9 @@ class MediaElementPortlet extends CPortlet
 	public $scriptFile = array('mediaelement-and-player.js');
 	public $cssFile = array('mediaelementplayer.css','mejs-skins.css');
 
-	protected function registerScriptFile($fileName,$position=CClientScript::POS_HEAD){
+	protected function registerScriptFile($fileName,$position=CClientScript::POS_BEGIN){
 		Yii::app()->clientScript->registerScriptFile($this->scriptUrl.'/'.$fileName,$position);
+//		Yii::app()->clientScript->registerScriptFile('http://www.storiesinflight.com/js_videosub/includes/videosub-0.9.9.js');
 	}
 	protected function registerCssFile($fileName){
 		Yii::app()->clientScript->registerCssFile($this->scriptUrl.'/'.$fileName);
@@ -142,14 +144,17 @@ class MediaElementPortlet extends CPortlet
 
 		$model = $this->model;
 		$att = $this->attribute;
-		if ( $this->url == null ) $this->url = $model->$att;
+		if ( $this->url == null && isset($model)&& isset($model->$att) ) $this->url = $model->$att;
+        if($this->url !== null) {
 		if ( $this->mimeType == null ) $this->mimeType = mime_content_type($this->url);
 		if ( $this->mimeType == null ) $this->mimeType = "audio/mp3";
 		list ( $type, $codec ) = explode( '/', $this->mimeType);
-		
-		if ( $type != null ) {
-			if($type == 'audio' || $type == 'video' ) $this->mediaType = $type;
-		}
+            if ( $type != null ) {
+                if($type == 'audio' || $type == 'video' ) $this->mediaType = $type;
+            }
+        $this->htmlOptions['src'] = $this->url;
+    }
+
 		if (!isset($this->htmlOptions['id']))
 		$this->htmlOptions['id'] = $this->getId();
 
@@ -160,7 +165,6 @@ class MediaElementPortlet extends CPortlet
 
         // add in our other custom options
         $this->htmlOptions['controls'] = "controls";
-        $this->htmlOptions['src'] = $this->url;
         $this->htmlOptions['autoplay'] = $this->autoplay;
 
         $this->resolvePackagePath();
@@ -172,10 +176,16 @@ class MediaElementPortlet extends CPortlet
 
         $tagContent = $this->tagContentGenerator();
 
+        if( isset($this->tracks) ) {
+            foreach($this->tracks as $item) {
+                $tagContent .= CHtml::tag('track', $item) . PHP_EOL;
+            }
+        }
+
         echo CHtml::tag(
             $this->mediaType,
             $this->htmlOptions,
-            $tagContent
+             PHP_EOL . $tagContent
         );
         ?>
 
@@ -198,7 +208,7 @@ class MediaElementPortlet extends CPortlet
         // handle adding our sources, if any
         if( isset($this->sources) ) {
             foreach($this->sources as $item) {
-                $content .= CHtml::tag('source', $item);
+                $content .= CHtml::tag('source', $item) . PHP_EOL;
             }
 
             // now, clear our main tag's src option, it's no longer useful, as we've added in source fallbacks instead
@@ -244,7 +254,7 @@ class MediaElementPortlet extends CPortlet
             $optionsContent .= CHtml::tag($tag['tag'], $tag['options']);
         }
 
-        $content .= CHtml::tag('object', $options, $optionsContent);
+        $content .= CHtml::tag('object', $options, $optionsContent) . PHP_EOL;
 
         return $content;
     }
